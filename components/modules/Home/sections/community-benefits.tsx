@@ -5,7 +5,7 @@ import Image from "next/image";
 export function CommunityBenefits() {
   return (
     <section className="bg-muted/40 py-16">
-      <div className="mx-auto max-w-6xl px-4">
+      <div className="mx-auto max-w-7xl px-4">
         <h1 className="mb-8 text-lg font-semibold">Community Benefits</h1>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -30,7 +30,7 @@ export function CommunityBenefits() {
 
           <Card className="flex flex-row justify-between p-6 sm:col-span-1 lg:col-span-2 items-center">
             <ShieldCheck className="h-12 w-12 p-1.5 text-primary bg-green-200 rounded-sm" />
-            
+
             <div className="flex flex-col gap-2 text-sm font-medium">
               <p>Verified Community</p>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -42,7 +42,9 @@ export function CommunityBenefits() {
 
           <Card className="flex flex-col bg-chart-2 p-8 items-center ">
             <Leaf className="mb-2 h-5 w-5 text-white font-bold" />
-            <div className="text-2xl font-light text-white font-[Impact,sans-serif]">ECO IMPACT</div>
+            <div className="text-2xl font-light text-white font-[Impact,sans-serif]">
+              ECO IMPACT
+            </div>
             <div className="text-2xl font-bold text-white">240t</div>
             <p className="text-sm text-white opacity-80">CO2 Reduced Yearly</p>
           </Card>

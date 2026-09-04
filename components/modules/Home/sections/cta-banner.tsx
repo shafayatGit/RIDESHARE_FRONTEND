@@ -3,7 +3,7 @@ import { Car } from "lucide-react";
 
 export function CtaBanner() {
   return (
-    <section className="mx-auto max-w-6xl px-4 pb-16">
+    <section className="mx-auto max-w-7xl px-4 pb-16">
       <div className="flex flex-col items-center justify-between gap-6 rounded-2xl bg-foreground p-10 text-background sm:flex-row">
         <div>
           <h2 className="text-2xl font-semibold">Ready to start sharing?</h2>

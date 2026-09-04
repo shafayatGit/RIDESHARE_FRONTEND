@@ -23,7 +23,7 @@ const features = [
 
 export function Features() {
   return (
-    <section className="mx-auto max-w-6xl px-4 pb-16">
+    <section className="mx-auto max-w-7xl px-4 pb-16">
       <h2 className="mb-8 text-center text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Seamless Commuting
       </h2>

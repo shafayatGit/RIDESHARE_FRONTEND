@@ -1,15 +1,14 @@
-import { Footer } from "@/components/footer";
-import { Navbar } from "@/components/navbar";
-import { CommunityBenefits } from "@/components/sections/community-benefits";
-import { CtaBanner } from "@/components/sections/cta-banner";
-import { Features } from "@/components/sections/features";
-import { Hero } from "@/components/sections/hero";
-import { TrendingDestinations } from "@/components/sections/trending-destinations";
+import { Footer } from "@/components/shared/footer";
+import { Navbar } from "@/components/shared/navbar";
+import { CommunityBenefits } from "@/components/modules/Home/sections/community-benefits";
+import { CtaBanner } from "@/components/modules/Home/sections/cta-banner";
+import { Features } from "@/components/modules/Home/sections/features";
+import { Hero } from "@/components/modules/Home/sections/hero";
+import { TrendingDestinations } from "@/components/modules/Home/sections/trending-destinations";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
       <main className="flex-1">
         <Hero />
         <Features />
@@ -17,7 +16,6 @@ export default function Home() {
         <TrendingDestinations />
         <CtaBanner />
       </main>
-      <Footer />
     </div>
   );
 }
