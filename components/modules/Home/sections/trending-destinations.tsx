@@ -30,7 +30,7 @@ const destinations = [
 
 export function TrendingDestinations() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
+    <section className="mx-auto max-w-7xl px-4 py-16">
       <div className="mb-8 flex items-end justify-between">
         <div>
           <h2 className="text-2xl font-semibold">Trending Destinations</h2>
@@ -38,7 +38,10 @@ export function TrendingDestinations() {
             The most frequent routes currently active on campus.
           </p>
         </div>
-        <Link href="/routes" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+        <Link
+          href="/routes"
+          className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
           View All Routes <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -47,7 +50,12 @@ export function TrendingDestinations() {
         {destinations.map((dest) => (
           <Card key={dest.name} className="overflow-hidden py-0">
             <div className="relative h-40 w-full">
-              <Image src={dest.image} alt={dest.name} fill className="object-cover" />
+              <Image
+                src={dest.image}
+                alt={dest.name}
+                fill
+                className="object-cover"
+              />
               <Badge className="absolute left-3 top-3 bg-background text-foreground">
                 {dest.discount}
               </Badge>

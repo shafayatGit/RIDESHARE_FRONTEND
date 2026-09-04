@@ -25,29 +25,48 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-primary">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-primary text-xl md:text-2xl font-bold"
+        >
           <Image
             src="/logo.svg"
             alt="RideShare Logo"
             width={24}
             height={24}
-            className="w-3 h-3 md:w-5 md:h-5"
+            className="w-5 h-5 md:w-8 md:h-8"
           />
           RideShare
         </Link>
 
         <nav className="hidden gap-6 text-sm font-medium text-muted-foreground md:flex">
           {navLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="hover:text-foreground transition-colors">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="hover:text-foreground transition-colors"
+            >
               {link.label}
             </Link>
           ))}
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Button variant="ghost" size="sm">Log in</Button>
-          <Button size="sm">Sign up</Button>
+          <Link
+            href="/login"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Button variant="ghost" className="justify-start">
+              Log in
+            </Button>
+          </Link>
+          <Link
+            href="/registration"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Button className="justify-start">Sign up</Button>
+          </Link>
         </div>
 
         <Sheet open={open} onOpenChange={setOpen}>
@@ -72,8 +91,20 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="mt-4 flex flex-col gap-2">
-                <Button variant="ghost" className="justify-start">Log in</Button>
-                <Button>Sign up</Button>
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Button variant="ghost" className="justify-start">
+                    Log in
+                  </Button>
+                </Link>
+                <Link
+                  href="/registration"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Button className="justify-start">Sign up</Button>
+                </Link>
               </div>
             </nav>
           </SheetContent>
