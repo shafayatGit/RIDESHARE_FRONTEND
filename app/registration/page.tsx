@@ -1,7 +1,7 @@
 import RegistrationPageComponent from "@/components/modules/registration/RegistrationPage";
 import React from "react";
 
-const RagistrationPage = () => {
+const RegistrationPage = () => {
   return (
     <div>
       <RegistrationPageComponent />
@@ -9,4 +9,4 @@ const RagistrationPage = () => {
   );
 };
 
-export default RagistrationPage;
+export default RegistrationPage;
