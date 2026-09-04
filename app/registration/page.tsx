@@ -1,4 +1,4 @@
-import RegistrationPageComponent from "@/components/modules/registration/RegistrationPage";
+import RegistrationPageComponent from "@/components/modules/Authentication/registration/RegistrationPage";
 import React from "react";
 
 const RegistrationPage = () => {
