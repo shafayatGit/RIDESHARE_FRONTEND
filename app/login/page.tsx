@@ -1,12 +1,7 @@
-import LoginPageComponent from "@/components/modules/login/loginPage";
 import React from "react";
 
 const LoginPage = () => {
-  return (
-    <div>
-      <LoginPageComponent />
-    </div>
-  );
+  return <div></div>;
 };
 
 export default LoginPage;

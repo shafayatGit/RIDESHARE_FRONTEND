@@ -62,7 +62,7 @@ export function Navbar() {
             </Button>
           </Link>
           <Link
-            href="/signup"
+            href="/registration"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             <Button className="justify-start">Sign up</Button>
@@ -100,7 +100,7 @@ export function Navbar() {
                   </Button>
                 </Link>
                 <Link
-                  href="/signup"
+                  href="/registration"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Button className="justify-start">Sign up</Button>

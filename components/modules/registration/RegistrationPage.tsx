@@ -28,7 +28,7 @@ const termsText = (
   </>
 );
 
-export default function LoginPageComponent() {
+export default function RegistrationPageComponent() {
   return (
     <section className="min-h-[calc(100vh-100px)] bg-white p-3 text-black">
       <div className="grid min-h-[calc(100vh-100px)] gap-6 lg:grid-cols-[0.94fr_1.06fr]">
