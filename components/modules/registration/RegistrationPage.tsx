@@ -1,85 +1,299 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { CardContent } from "@/components/ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
 import { GrainGradient } from "@paper-design/shaders-react";
+import { useForm } from "@tanstack/react-form";
+import { useRegistration } from "@/hooks/use-registration";
+import { registerSchema } from "@/zod/registration";
+import type { RegisterPayload } from "@/types/registration";
+import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useState } from "react";
-import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
-const formFields = [
-  { label: "First Name", value: "Harshit", type: "text" },
-  { label: "Last Name", value: "Sharma", type: "text" },
-];
-
-const termsText = (
-  <>
-    By creating an account, you agree to our{" "}
-    <a
-      href="#"
-      className="font-medium text-black/45 underline underline-offset-2 dark:text-white/45"
-    >
-      Terms and Services
-    </a>{" "}
-    and{" "}
-    <a
-      href="#"
-      className="font-medium text-black/45 underline underline-offset-2 dark:text-white/45"
-    >
-      Privacy Policy
-    </a>
-  </>
-);
+function mapErrorMessage(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("email") && lower.includes("already"))
+    return "An account with this email already exists. Please try a different email.";
+  if (lower.includes("password"))
+    return "Please check your password requirements.";
+  if (lower.includes("network") || lower.includes("fetch"))
+    return "Network error. Please check your connection and try again.";
+  return message || "Registration failed. Please try again.";
+}
 
 export default function RegistrationPageComponent() {
+  const router = useRouter();
+  const { mutateAsync, isPending } = useRegistration();
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      email: "",
+      gender: "",
+      phoneNumber: "",
+      password: "",
+    },
+    validators: {
+      onChange: registerSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setServerError(null);
+      try {
+        const payload: RegisterPayload = {
+          ...value,
+          gender: value.gender as "MALE" | "FEMALE",
+        };
+        const result = await mutateAsync(payload);
+
+        if (!result.success) {
+          setServerError(
+            mapErrorMessage(result.message || "Registration failed."),
+          );
+          return;
+        }
+
+        if (result.redirectPath) {
+          router.push(result.redirectPath);
+        }
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Unexpected error occurred";
+        setServerError(mapErrorMessage(message));
+      }
+    },
+  });
+
   return (
     <section className="min-h-[calc(100vh-100px)] bg-white p-3 text-black">
       <div className="grid min-h-[calc(100vh-100px)] gap-6 lg:grid-cols-[0.94fr_1.06fr]">
-        <div className="flex min-h-190 items-center rounded-md border border-black/20 bg-white px-6 py-12 sm:px-10 lg:min-h-0 lg:px-14 lg:py-28 xl:px-20">
-          <div className="flex flex-col gap-10 mx-auto w-full max-w-147.5">
+        <div className="flex min-h-190 items-center rounded-md border border-black/20 bg-white px-3 py-12 sm:px-10 lg:min-h-0 lg:px-14 lg:py-28 xl:px-20">
+          <div className="mx-auto flex w-full max-w-147.5 flex-col gap-10">
             <div>
-              <h1 className="text-center whitespace-nowrap text-3xl font-semibold tracking-[-0.04em] sm:text-4xl lg:text-[42px] lg:leading-[1.05] xl:text-[50px]">
+              <h1 className="whitespace-nowrap text-center text-2xl font-semibold tracking-[-0.04em] sm:text-4xl lg:text-[42px] lg:leading-[1.05] xl:text-[50px]">
                 Create an account
               </h1>
             </div>
 
-            <form className="space-y-5">
-              <div className="grid gap-5 sm:grid-cols-2">
-                {formFields.map((field) => (
-                  <FieldBox
-                    key={field.label}
-                    label={field.label}
-                    value={field.value}
-                  />
-                ))}
-              </div>
-
-              <FieldBox
-                label="Email"
-                value="harshitlog@gmail.com"
-                type="email"
-              />
-              <FieldBox
-                label="Password"
-                value="*************"
-                type="password"
-              />
-
-              <div className="space-y-4 pt-2 text-sm leading-5 text-black/30 dark:text-white/35 sm:text-[15px]">
-                <CheckboxLine>
-                  I don't want to receive emails about solaceui feature updates
-                </CheckboxLine>
-                <CheckboxLine>{termsText}</CheckboxLine>
-              </div>
-
-              <button
-                type="button"
-                className="mt-9 flex h-12 w-full items-center justify-center rounded-[10px] border border-black/40 bg-black text-xl font-medium text-white transition-colors hover:bg-black/85 dark:border-white/40 dark:bg-white dark:text-black dark:hover:bg-white/85"
+            <CardContent className="sm:px-6">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  form.handleSubmit();
+                }}
+                className="space-y-4"
+                noValidate
               >
-                Submit
-              </button>
-            </form>
+                <form.Field name="name">
+                  {(field) => {
+                    const hasError =
+                      field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={hasError}>
+                        <FieldLabel htmlFor={field.name}>Full Name</FieldLabel>
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type="text"
+                          value={field.state.value}
+                          placeholder="eg. Shafayat Hossain"
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          aria-invalid={hasError}
+                        />
+                        {hasError && (
+                          <FieldError errors={field.state.meta.errors} />
+                        )}
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+
+                <form.Field name="email">
+                  {(field) => {
+                    const hasError =
+                      field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={hasError}>
+                        <FieldLabel htmlFor={field.name}>Email</FieldLabel>
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type="email"
+                          value={field.state.value}
+                          placeholder="eg. shafayathossain.drmc@gmail.com"
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          aria-invalid={hasError}
+                        />
+                        {hasError && (
+                          <FieldError errors={field.state.meta.errors} />
+                        )}
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+
+                <form.Field name="gender">
+                  {(field) => {
+                    const hasError =
+                      field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={hasError}>
+                        <FieldLabel>Gender</FieldLabel>
+                        <Select
+                          value={field.state.value}
+                          onValueChange={(val) =>
+                            field.handleChange(val as "MALE" | "FEMALE")
+                          }
+                        >
+                          <SelectTrigger
+                            className="w-full"
+                            aria-invalid={hasError}
+                          >
+                            <SelectValue placeholder="Select your gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="MALE">Male</SelectItem>
+                            <SelectItem value="FEMALE">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {hasError && (
+                          <FieldError errors={field.state.meta.errors} />
+                        )}
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+
+                <form.Field name="phoneNumber">
+                  {(field) => {
+                    const hasError =
+                      field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={hasError}>
+                        <FieldLabel htmlFor={field.name}>
+                          Phone Number
+                        </FieldLabel>
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          type="tel"
+                          value={field.state.value}
+                          placeholder="e.g. +8801712345678"
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          aria-invalid={hasError}
+                        />
+                        {hasError && (
+                          <FieldError errors={field.state.meta.errors} />
+                        )}
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+
+                <form.Field name="password">
+                  {(field) => {
+                    const hasError =
+                      field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={hasError}>
+                        <FieldLabel htmlFor={field.name}>Password</FieldLabel>
+                        <div className="relative">
+                          <Input
+                            id={field.name}
+                            name={field.name}
+                            type={showPassword ? "text" : "password"}
+                            value={field.state.value}
+                            placeholder="Choose a password"
+                            className="pr-9"
+                            onBlur={field.handleBlur}
+                            onChange={(e) => field.handleChange(e.target.value)}
+                            aria-invalid={hasError}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-9 w-9"
+                            onClick={() => setShowPassword((v) => !v)}
+                            aria-label={
+                              showPassword ? "Hide password" : "Show password"
+                            }
+                          >
+                            {showPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </Button>
+                        </div>
+                        {hasError && (
+                          <FieldError errors={field.state.meta.errors} />
+                        )}
+                        <FieldDescription>
+                          Must be 8+ characters with uppercase, lowercase,
+                          special characters, and a number.
+                        </FieldDescription>
+                      </Field>
+                    );
+                  }}
+                </form.Field>
+
+                {serverError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{serverError}</AlertDescription>
+                  </Alert>
+                )}
+
+                <form.Subscribe
+                  selector={(s) => [s.canSubmit, s.isSubmitting] as const}
+                >
+                  {([canSubmit, isSubmitting]) => (
+                    <Button
+                      type="submit"
+                      className="h-11 w-full text-sm sm:text-base"
+                      disabled={!canSubmit || isPending}
+                    >
+                      {isSubmitting || isPending ? (
+                        <>
+                          <Spinner />
+                          <span>Signing Up...</span>
+                        </>
+                      ) : (
+                        "Sign Up"
+                      )}
+                    </Button>
+                  )}
+                </form.Subscribe>
+              </form>
+            </CardContent>
           </div>
         </div>
 
-        <div className="hidden md:flex relative min-h-180 overflow-hidden rounded-md bg-black p-8 text-white sm:p-12 lg:min-h-0">
+        <div className="relative hidden min-h-180 overflow-hidden rounded-md bg-black p-8 text-white sm:p-12 lg:flex lg:min-h-0">
           <GrainGradient
             speed={1}
             scale={1}
@@ -95,7 +309,6 @@ export default function RegistrationPageComponent() {
             colorBack="#00000000"
             className="absolute inset-0 bg-black"
           />
-
           <div className="relative z-10 flex h-full w-full flex-col justify-between">
             <h2 className="max-w-155 pt-0 text-5xl font-medium tracking-tighter text-white sm:text-6xl lg:pt-16 lg:text-[64px] lg:leading-[0.98] xl:text-[70px]">
               Share the Ride
@@ -106,70 +319,5 @@ export default function RegistrationPageComponent() {
         </div>
       </div>
     </section>
-  );
-}
-
-function FieldBox({
-  label,
-  value,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  type?: string;
-}) {
-  const [inputValue, setInputValue] = useState(value);
-  const [isEditing, setIsEditing] = useState(false);
-
-  return (
-    <label className="flex h-14 items-center justify-between gap-4 rounded-[10px] border border-black/25 bg-white px-5 text-lg leading-none dark:border-white/15 dark:bg-white/5 xl:text-xl">
-      <input
-        type={type}
-        value={inputValue}
-        aria-label={label}
-        onFocus={() => {
-          if (!isEditing) {
-            setInputValue("");
-            setIsEditing(true);
-          }
-        }}
-        onChange={(event) => {
-          setInputValue(event.target.value);
-          setIsEditing(true);
-        }}
-        className="min-w-0 flex-1 truncate bg-transparent text-black/30 outline-none placeholder:text-black/30 dark:text-white/35 dark:placeholder:text-white/35"
-      />
-      {!isEditing && (
-        <span className="shrink-0 text-black dark:text-white">{label}</span>
-      )}
-    </label>
-  );
-}
-
-function CheckboxLine({ children }: { children: ReactNode }) {
-  return (
-    <label className="flex items-start gap-3">
-      <span className="relative mt-1 size-3.5 shrink-0">
-        <input
-          type="checkbox"
-          className="peer size-full appearance-none rounded-xs border border-black/25 bg-white checked:border-black checked:bg-black dark:border-white/30 dark:bg-white/5 dark:checked:border-white dark:checked:bg-white"
-        />
-        <svg
-          viewBox="0 0 12 12"
-          className="pointer-events-none absolute inset-0 hidden size-full p-0.5 text-white peer-checked:block dark:text-black"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M3 6.2 5 8.1 9 3.9"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      <span>{children}</span>
-    </label>
   );
 }
