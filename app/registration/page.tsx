@@ -3,7 +3,7 @@ import React from "react";
 
 const RegistrationPage = () => {
   return (
-    <div>
+    <div className="min-h-100vh ">
       <RegistrationPageComponent />
     </div>
   );

@@ -1,44 +1,57 @@
-import type { RegisterPayload, RegisterResponse } from "@/types/registration";
+import { http } from "@/services/api-client";
+import type {
+  ApiEnvelope,
+  AuthResponse,
+  LoginPayload,
+  RegisterPayload,
+  SendOTPPayload,
+  VerifyOTPPayload,
+  VerifyOTPResponse,
+} from "@/types/auth";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+export const authService = {
+  async register(payload: RegisterPayload): Promise<AuthResponse> {
+    const { data } = await http.post<ApiEnvelope<AuthResponse>>(
+      "/auth/register",
+      payload,
+    );
+    return data.data;
+  },
 
-export async function registerUser(
-  payload: RegisterPayload,
-): Promise<RegisterResponse> {
-  const res = await fetch(`${API_BASE_URL}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  async login(
+    payload: LoginPayload,
+  ): Promise<{ accessToken: string; refreshToken: string; token: string }> {
+    const { data } = await http.post<
+      ApiEnvelope<{
+        accessToken: string;
+        refreshToken: string;
+        token: string;
+      }>
+    >("/auth/login", payload);
+    return data.data;
+  },
 
-  let body: unknown;
-  try {
-    body = await res.json();
-  } catch {
-    body = null;
-  }
+  async sendOTP(payload: SendOTPPayload): Promise<{ email: string }> {
+    const { data } = await http.post<ApiEnvelope<{ email: string }>>(
+      "/auth/send-otp",
+      payload,
+    );
+    return data.data;
+  },
 
-  const record = body as Record<string, unknown> | null;
+  async resendOTP(payload: SendOTPPayload): Promise<{ email: string }> {
+    const { data } = await http.post<ApiEnvelope<{ email: string }>>(
+      "/auth/resend-otp",
+      payload,
+    );
+    return data.data;
+  },
 
-  if (!res.ok) {
-    const errorSources = record?.errorSources as
-      | { path?: string; message?: string }[]
-      | undefined;
-
-    const message =
-      (record?.message as string) ||
-      errorSources?.map((e) => e.message).filter(Boolean).join(". ") ||
-      `Registration failed with status ${res.status}`;
-
-    return { success: false, message };
-  }
-
-  const data = record?.data as Record<string, unknown> | undefined;
-
-  return {
-    success: true,
-    message: (record?.message as string) || undefined,
-    redirectPath: (data?.redirectPath as string) || undefined,
-  };
-}
+  async verifyOTP(payload: VerifyOTPPayload): Promise<VerifyOTPResponse> {
+    const { data } = await http.post<ApiEnvelope<VerifyOTPResponse>>(
+      "/auth/verify-otp",
+      payload,
+    );
+    return data.data;
+  },
+};

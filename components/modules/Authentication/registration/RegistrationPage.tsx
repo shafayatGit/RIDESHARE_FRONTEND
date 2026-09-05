@@ -20,30 +20,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { GrainGradient } from "@paper-design/shaders-react";
 import { useForm } from "@tanstack/react-form";
-import { useRegistration } from "@/hooks/use-registration";
+import { useRegister } from "@/hooks/use-auth";
+import { authStore } from "@/hooks/auth-store";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { registerSchema } from "@/zod/registration";
-import type { RegisterPayload } from "@/types/registration";
+import { getApiErrorMessage } from "@/services/api-client";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-function mapErrorMessage(message: string): string {
-  const lower = message.toLowerCase();
-  if (lower.includes("email") && lower.includes("already"))
-    return "An account with this email already exists. Please try a different email.";
-  if (lower.includes("password"))
-    return "Please check your password requirements.";
-  if (lower.includes("network") || lower.includes("fetch"))
-    return "Network error. Please check your connection and try again.";
-  return message || "Registration failed. Please try again.";
-}
-
 export default function RegistrationPageComponent() {
   const router = useRouter();
-  const { mutateAsync, isPending } = useRegistration();
-
+  const { mutateAsync, isPending } = useRegister();
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const showPage = useAuthGuard();
 
   const form = useForm({
     defaultValues: {
@@ -59,33 +51,27 @@ export default function RegistrationPageComponent() {
     onSubmit: async ({ value }) => {
       setServerError(null);
       try {
-        const payload: RegisterPayload = {
-          ...value,
-          gender: value.gender as "MALE" | "FEMALE",
-        };
-        const result = await mutateAsync(payload);
-
-        if (!result.success) {
-          setServerError(
-            mapErrorMessage(result.message || "Registration failed."),
-          );
-          return;
-        }
-
-        if (result.redirectPath) {
-          router.push(result.redirectPath);
-        }
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Unexpected error occurred";
-        setServerError(mapErrorMessage(message));
+        await mutateAsync({
+          payload: {
+            ...value,
+            gender: value.gender as "MALE" | "FEMALE",
+          },
+          onSuccess: (email) => {
+            authStore.setPendingEmail(email);
+            router.push("/otp-verification");
+          },
+        });
+      } catch (err) {
+        setServerError(getApiErrorMessage(err));
       }
     },
   });
 
+  if (!showPage) return null;
+
   return (
-    <section className="min-h-[calc(100vh-100px)] bg-white p-3 text-black">
-      <div className="grid min-h-[calc(100vh-100px)] gap-6 lg:grid-cols-[0.94fr_1.06fr]">
+    <section className="min-h-100vh bg-white p-3 text-black">
+      <div className="grid min-h-100vh gap-6 lg:grid-cols-[0.94fr_1.06fr]">
         <div className="flex min-h-190 items-center rounded-md border border-black/20 bg-white px-3 py-12 sm:px-10 lg:min-h-0 lg:px-14 lg:py-28 xl:px-20">
           <div className="mx-auto flex w-full max-w-147.5 flex-col gap-10">
             <div>
@@ -192,9 +178,7 @@ export default function RegistrationPageComponent() {
                       field.state.meta.isTouched && !field.state.meta.isValid;
                     return (
                       <Field data-invalid={hasError}>
-                        <FieldLabel htmlFor={field.name}>
-                          Phone Number
-                        </FieldLabel>
+                        <FieldLabel htmlFor={field.name}>Phone Number</FieldLabel>
                         <Input
                           id={field.name}
                           name={field.name}

@@ -1,45 +1,38 @@
+import axios, { AxiosError } from "axios";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-export class ApiError extends Error {
-  status: number;
-  data: unknown;
+export const http = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: { "Content-Type": "application/json" },
+});
 
-  constructor(message: string, status: number, data?: unknown) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.data = data;
-  }
+export interface ApiErrorPayload {
+  success: false;
+  message: string;
+  errorSources?: { path: string; message: string }[];
 }
 
-export async function apiClient<T>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+export function getApiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const data = (error as AxiosError<ApiErrorPayload>).response?.data;
+    if (data?.message) return data.message;
 
-  const res = await fetch(url, {
-    headers: {
-      ...options.headers,
-    },
-    ...options,
-  });
-
-  if (!res.ok) {
-    let data: unknown;
-    try {
-      data = await res.json();
-    } catch {
-      data = null;
+    const sources = data?.errorSources;
+    if (sources?.length) {
+      return sources.map((s) => s.message).join(". ");
     }
 
-    const message =
-      (data as Record<string, string>)?.message ||
-      `Request failed with status ${res.status}`;
+    if (error.code === "ERR_NETWORK") {
+      return "Network error. Please check your connection and try again.";
+    }
 
-    throw new ApiError(message, res.status, data);
+    return error.message;
   }
 
-  return res.json() as Promise<T>;
+  return error instanceof Error
+    ? error.message
+    : "Unexpected error occurred. Please try again.";
 }
