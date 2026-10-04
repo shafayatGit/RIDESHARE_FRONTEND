@@ -1,8 +1,7 @@
 "use client";
 
 import { RequireAuth } from "@/components/auth/require-auth";
-import { Footer } from "@/components/footer";
-import { Navbar } from "@/components/navbar";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,9 +27,23 @@ import { api, ApiError } from "@/lib/api";
 import { distanceInMiles, formatCurrency } from "@/lib/format";
 import type { Ride, Vehicle } from "@/lib/types";
 import { Check, MapPin, Plus } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { toast } from "sonner";
+
+const DhakaLocationMap = dynamic(
+  () =>
+    import("@/components/maps/dhaka-location-map").then(
+      (m) => m.DhakaLocationMap,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 w-full animate-pulse rounded-lg bg-muted" />
+    ),
+  },
+);
 
 const steps = ["Route Details", "Schedule & Recurrence", "Preferences", "Confirmation"] as const;
 
@@ -91,6 +104,19 @@ export default function OfferRidePage() {
   const removeStop = (index: number) => setStops((s) => s.filter((_, i) => i !== index));
   const updateStop = (index: number, patch: Partial<StopInput>) =>
     setStops((s) => s.map((stop, i) => (i === index ? { ...stop, ...patch } : stop)));
+
+  const handleLocationSelect = (
+    type: "origin" | "destination",
+    point: { lat: number; lng: number; address: string },
+  ) => {
+    const value: StopInput = {
+      address: point.address,
+      lat: String(point.lat),
+      lng: String(point.lng),
+    };
+    if (type === "origin") setOrigin(value);
+    else setDestination(value);
+  };
 
   const handleAddVehicle = async (form: FormData) => {
     try {
@@ -164,7 +190,6 @@ export default function OfferRidePage() {
   return (
     <RequireAuth>
       <div className="flex min-h-screen flex-col">
-        <Navbar />
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[200px_1fr_260px]">
             <aside className="flex flex-row gap-2 lg:flex-col">
@@ -188,9 +213,6 @@ export default function OfferRidePage() {
                   </span>
                 </div>
               ))}
-              <Badge variant="eco" className="mt-4 hidden w-fit lg:inline-flex">
-                Drivers earn +50 campus credits per green shared trip
-              </Badge>
             </aside>
 
             <Card className="h-fit">
@@ -207,22 +229,40 @@ export default function OfferRidePage() {
                         value={origin.address}
                         onChange={(e) => setOrigin({ ...origin, address: e.target.value })}
                       />
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="Latitude"
-                          value={origin.lat}
-                          onChange={(e) => setOrigin({ ...origin, lat: e.target.value })}
-                        />
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="Longitude"
-                          value={origin.lng}
-                          onChange={(e) => setOrigin({ ...origin, lng: e.target.value })}
-                        />
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {origin.lat && origin.lng
+                          ? `Coordinates: ${origin.lat}, ${origin.lng}`
+                          : "Tap the map below to set the pickup point."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border p-3">
+                      <DhakaLocationMap
+                        origin={
+                          origin.lat && origin.lng
+                            ? {
+                                lat: Number(origin.lat),
+                                lng: Number(origin.lng),
+                                address: origin.address,
+                              }
+                            : null
+                        }
+                        destination={
+                          destination.lat && destination.lng
+                            ? {
+                                lat: Number(destination.lat),
+                                lng: Number(destination.lng),
+                                address: destination.address,
+                              }
+                            : null
+                        }
+                        onOriginSelect={(point) =>
+                          handleLocationSelect("origin", point)
+                        }
+                        onDestinationSelect={(point) =>
+                          handleLocationSelect("destination", point)
+                        }
+                      />
                     </div>
 
                     {stops.map((stop, i) => (
@@ -274,24 +314,18 @@ export default function OfferRidePage() {
                       <Input
                         placeholder="Enter drop-off location"
                         value={destination.address}
-                        onChange={(e) => setDestination({ ...destination, address: e.target.value })}
+                        onChange={(e) =>
+                          setDestination({
+                            ...destination,
+                            address: e.target.value,
+                          })
+                        }
                       />
-                      <div className="grid grid-cols-2 gap-2">
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="Latitude"
-                          value={destination.lat}
-                          onChange={(e) => setDestination({ ...destination, lat: e.target.value })}
-                        />
-                        <Input
-                          type="number"
-                          step="any"
-                          placeholder="Longitude"
-                          value={destination.lng}
-                          onChange={(e) => setDestination({ ...destination, lng: e.target.value })}
-                        />
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {destination.lat && destination.lng
+                          ? `Coordinates: ${destination.lat}, ${destination.lng}`
+                          : "Use the map above to set the drop-off point."}
+                      </p>
                     </div>
                   </>
                 )}
@@ -538,7 +572,6 @@ export default function OfferRidePage() {
             </aside>
           </div>
         </main>
-        <Footer />
       </div>
     </RequireAuth>
   );

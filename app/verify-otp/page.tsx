@@ -1,7 +1,6 @@
 "use client";
 
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,9 +31,9 @@ function VerifyOTPForm() {
     }
     setIsSubmitting(true);
     try {
-      await verifyOTP(email, otp);
+      const user = await verifyOTP(email, otp);
       toast.success("Email verified — you're logged in");
-      router.push("/profile");
+      router.push(user.isAdmin ? "/admin" : "/dashboard");
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Invalid or expired code");
     } finally {
@@ -96,13 +95,11 @@ function VerifyOTPForm() {
 export default function VerifyOTPPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <Suspense>
           <VerifyOTPForm />
         </Suspense>
       </main>
-      <Footer />
     </div>
   );
 }

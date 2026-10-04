@@ -2,6 +2,7 @@ export type Gender = "MALE" | "FEMALE";
 export type AccountStatus = "ACTIVE" | "DEACTIVATED";
 export type RideStatus = "SCHEDULED" | "ONGOING" | "COMPLETED" | "CANCELLED";
 export type CheckpointType = "PICKUP" | "DROP" | "STOP";
+export type BookingStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
 
 export interface User {
   id: string;
@@ -82,4 +83,49 @@ export interface ChatMessage {
   sentAt: string;
   readAt?: string | null;
   sender?: { id: string; name: string };
+}
+
+export interface BookingCheckpoint {
+  id: string;
+  address: string;
+  lat: number;
+  lng: number;
+  sequenceOrder: number;
+}
+
+export interface BookingRide {
+  id: string;
+  originAddress: string;
+  destinationAddress: string;
+  departureTime: string;
+  status: RideStatus;
+  driver?: { id: string; name: string; image?: string | null };
+  vehicle?: { model: string; color: string; plate: string };
+}
+
+export interface BookingPassenger {
+  id: string;
+  name: string;
+  image?: string | null;
+}
+
+export interface Booking {
+  id: string;
+  rideId: string;
+  passengerId: string;
+  pickupCheckpointId: string;
+  dropCheckpointId: string;
+  seatsBooked: number;
+  costShareAmount: string | number;
+  status: BookingStatus;
+  bookingTime: string;
+  cancelledById?: string | null;
+  cancellationReason?: string | null;
+  cancelledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ride?: BookingRide;
+  passenger?: BookingPassenger;
+  pickupCheckpoint?: BookingCheckpoint;
+  dropCheckpoint?: BookingCheckpoint;
 }

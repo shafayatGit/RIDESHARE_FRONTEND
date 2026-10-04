@@ -1,7 +1,6 @@
 "use client";
 
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,7 +49,7 @@ export default function RegisterPage() {
         phoneNumber: form.phoneNumber || undefined,
       });
       toast.success("Account created — check your email for a verification code");
-      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+      router.push(`/otp-verification?email=${encodeURIComponent(email)}`);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to create account");
     } finally {
@@ -60,7 +59,6 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader>
@@ -141,7 +139,6 @@ export default function RegisterPage() {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 }

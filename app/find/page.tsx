@@ -1,7 +1,6 @@
 "use client";
 
-import { Footer } from "@/components/footer";
-import { Navbar } from "@/components/navbar";
+
 import { RequireAuth } from "@/components/auth/require-auth";
 import { RideCard } from "@/components/rides/ride-card";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +77,6 @@ export default function FindRidePage() {
   return (
     <RequireAuth>
       <div className="flex min-h-screen flex-col">
-        <Navbar />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -177,7 +175,6 @@ export default function FindRidePage() {
             </div>
           </div>
         </main>
-        <Footer />
       </div>
     </RequireAuth>
   );

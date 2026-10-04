@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { api } from "@/lib/api";
+import { setSessionCookie } from "@/lib/session";
 import type { Gender, User } from "@/lib/types";
 
 const STORAGE_KEY = "rideshare.session";
@@ -55,6 +56,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const stored: StoredSession = JSON.parse(raw);
         setUser(stored.user);
         setAccessToken(stored.accessToken);
+        setSessionCookie(stored.user);
+      } else {
+        setSessionCookie(null);
       }
     } catch {
       // ignore corrupt/unavailable storage
@@ -68,10 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session.user);
       setAccessToken(session.accessToken);
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+      setSessionCookie(session.user);
     } else {
       setUser(null);
       setAccessToken(null);
       window.localStorage.removeItem(STORAGE_KEY);
+      setSessionCookie(null);
     }
   }, []);
 

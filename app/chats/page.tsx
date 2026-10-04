@@ -1,7 +1,6 @@
 "use client";
 
 import { RequireAuth } from "@/components/auth/require-auth";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,7 @@ import { formatCurrency, formatTime } from "@/lib/format";
 import { getSocket } from "@/lib/socket";
 import type { ChatMessage, Ride } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { MessageSquare, PhoneCall, Search, Send, ShieldAlert } from "lucide-react";
+import { MessageSquare, Search, Send } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Suspense } from "react";
@@ -157,13 +156,6 @@ function ChatsContent() {
                   {selectedRide.totalSeats - selectedRide.availableSeats} passenger(s)
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toast.info("SOS support isn't wired to the backend yet")}
-              >
-                <PhoneCall className="size-4" /> SOS Support
-              </Button>
             </div>
 
             <div className="bg-accent/20 px-3 py-1.5 text-center text-xs font-medium text-primary">
@@ -265,32 +257,6 @@ function ChatsContent() {
                 <span className="text-muted-foreground">Price / Seat</span>
                 <span className="font-medium">{formatCurrency(selectedRide.pricePerSeat)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">CO2 Saved</span>
-                <Badge variant="eco">2.4kg</Badge>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-medium uppercase text-muted-foreground">Safety Actions</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="justify-start text-destructive"
-                onClick={() => toast.info("Issue reporting isn't wired to the backend yet")}
-              >
-                <ShieldAlert className="size-4" /> Report Issue
-              </Button>
-              {selectedRide.driverId !== user?.id && selectedRide.status === "SCHEDULED" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-destructive"
-                  onClick={() => toast.info("Booking cancellation isn't wired to the backend yet")}
-                >
-                  Cancel Booking
-                </Button>
-              )}
             </div>
           </Card>
         </>

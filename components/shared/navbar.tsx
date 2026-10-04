@@ -4,14 +4,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -20,7 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth-context";
 import { initials } from "@/lib/format";
-import { Bell, LayoutDashboard, LogOut, Menu, MessageSquare, ShieldCheck, User as UserIcon } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,14 +37,17 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-primary">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-primary text-xl md:text-2xl font-bold"
+        >
           <Image
             src="/logo.svg"
             alt="RideShare Logo"
             width={24}
             height={24}
-            className="w-3 h-3 md:w-5 md:h-5"
+            className="w-5 h-5 md:w-8 md:h-8"
           />
           RideShare
           {user?.isAdmin && (
@@ -64,7 +59,11 @@ export function Navbar() {
 
         <nav className="hidden gap-6 text-sm font-medium text-muted-foreground md:flex">
           {navLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="hover:text-foreground transition-colors">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="hover:text-foreground transition-colors"
+            >
               {link.label}
             </Link>
           ))}
@@ -73,63 +72,41 @@ export function Navbar() {
         <div className="hidden items-center gap-2 md:flex">
           {user ? (
             <>
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/dashboard" aria-label="Notifications">
-                  <Bell className="h-4 w-4" />
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                aria-label="Go to dashboard"
+              >
+                <Link href="/dashboard">
+                  <Avatar>
+                    <AvatarImage src={user.image ?? ""} alt={user.name} />
+                    <AvatarFallback>{initials(user.name)}</AvatarFallback>
+                  </Avatar>
                 </Link>
               </Button>
-              <Button variant="ghost" size="icon" asChild>
-                <Link href="/chats" aria-label="Ride chats">
-                  <MessageSquare className="h-4 w-4" />
-                </Link>
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="mr-1.5 size-4" />
+                Log out
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="ml-1">
-                    <Avatar>
-                      <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                      <AvatarFallback>{initials(user.name)}</AvatarFallback>
-                    </Avatar>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="flex flex-col">
-                    <span className="text-foreground">{user.name}</span>
-                    <span className="font-normal text-muted-foreground">{user.email}</span>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile">
-                      <UserIcon /> Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/dashboard">
-                      <LayoutDashboard /> Driver Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  {user.isAdmin && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin">
-                        <ShieldCheck /> Campus Operations
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onSelect={handleLogout}>
-                    <LogOut /> Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href="/register">Sign up</Link>
-              </Button>
+              <Link
+                href="/login"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Button variant="ghost" className="justify-start">
+                  Log in
+                </Button>
+              </Link>
+              <Link
+                href="/registration"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Button className="justify-start">Sign up</Button>
+              </Link>
             </>
           )}
         </div>
@@ -160,8 +137,12 @@ export function Navbar() {
                   <Link
                     href="/dashboard"
                     onClick={() => setOpen(false)}
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                   >
+                    <Avatar>
+                      <AvatarImage src={user.image ?? ""} alt={user.name} />
+                      <AvatarFallback>{initials(user.name)}</AvatarFallback>
+                    </Avatar>
                     Driver Dashboard
                   </Link>
                   <Link
@@ -185,27 +166,32 @@ export function Navbar() {
               <div className="mt-4 flex flex-col gap-2">
                 {user ? (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     className="justify-start"
                     onClick={() => {
                       setOpen(false);
                       handleLogout();
                     }}
                   >
+                    <LogOut className="mr-1.5 size-4" />
                     Log out
                   </Button>
                 ) : (
                   <>
-                    <Button variant="ghost" className="justify-start" asChild>
-                      <Link href="/login" onClick={() => setOpen(false)}>
+                    <Link
+                      href="/login"
+                      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Button variant="ghost" className="justify-start">
                         Log in
-                      </Link>
-                    </Button>
-                    <Button asChild>
-                      <Link href="/register" onClick={() => setOpen(false)}>
-                        Sign up
-                      </Link>
-                    </Button>
+                      </Button>
+                    </Link>
+                    <Link
+                      href="/registration"
+                      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Button className="justify-start">Sign up</Button>
+                    </Link>
                   </>
                 )}
               </div>

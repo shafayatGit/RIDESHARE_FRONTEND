@@ -6,13 +6,13 @@ import { CalendarDays, Leaf, MapPin, Send } from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 text-center">
+    <section className="mx-auto max-w-7xl px-4 py-16 text-center">
       <Badge variant="eco" className="mb-4 gap-1">
         <Leaf className="h-3 w-3" />
         Eco-friendly campus travel
       </Badge>
 
-      <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+      <h1 className="text-3xl font-bold tracking-tight sm:text-5xl xl:text-7xl">
         Share the Ride, <span className="text-primary">Save the Planet.</span>
       </h1>
 
