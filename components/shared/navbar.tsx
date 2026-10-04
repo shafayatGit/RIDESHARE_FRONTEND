@@ -1,5 +1,7 @@
 "use client";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -8,9 +10,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { initials } from "@/lib/format";
+import { LogOut, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const navLinks = [
@@ -22,6 +27,13 @@ const navLinks = [
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
@@ -38,6 +50,11 @@ export function Navbar() {
             className="w-5 h-5 md:w-8 md:h-8"
           />
           RideShare
+          {user?.isAdmin && (
+            <Badge variant="eco" className="ml-1 hidden sm:inline-flex">
+              Admin Panel
+            </Badge>
+          )}
         </Link>
 
         <nav className="hidden gap-6 text-sm font-medium text-muted-foreground md:flex">
@@ -53,20 +70,45 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link
-            href="/login"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Button variant="ghost" className="justify-start">
-              Log in
-            </Button>
-          </Link>
-          <Link
-            href="/registration"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Button className="justify-start">Sign up</Button>
-          </Link>
+          {user ? (
+            <>
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                aria-label="Go to dashboard"
+              >
+                <Link href="/dashboard">
+                  <Avatar>
+                    <AvatarImage src={user.image ?? ""} alt={user.name} />
+                    <AvatarFallback>{initials(user.name)}</AvatarFallback>
+                  </Avatar>
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="mr-1.5 size-4" />
+                Log out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Button variant="ghost" className="justify-start">
+                  Log in
+                </Button>
+              </Link>
+              <Link
+                href="/registration"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Button className="justify-start">Sign up</Button>
+              </Link>
+            </>
+          )}
         </div>
 
         <Sheet open={open} onOpenChange={setOpen}>
@@ -90,21 +132,68 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
+              {user && (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Avatar>
+                      <AvatarImage src={user.image ?? ""} alt={user.name} />
+                      <AvatarFallback>{initials(user.name)}</AvatarFallback>
+                    </Avatar>
+                    Driver Dashboard
+                  </Link>
+                  <Link
+                    href="/chats"
+                    onClick={() => setOpen(false)}
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Ride Chats
+                  </Link>
+                  {user.isAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setOpen(false)}
+                      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Campus Operations
+                    </Link>
+                  )}
+                </>
+              )}
               <div className="mt-4 flex flex-col gap-2">
-                <Link
-                  href="/login"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Button variant="ghost" className="justify-start">
-                    Log in
+                {user ? (
+                  <Button
+                    variant="outline"
+                    className="justify-start"
+                    onClick={() => {
+                      setOpen(false);
+                      handleLogout();
+                    }}
+                  >
+                    <LogOut className="mr-1.5 size-4" />
+                    Log out
                   </Button>
-                </Link>
-                <Link
-                  href="/registration"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Button className="justify-start">Sign up</Button>
-                </Link>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Button variant="ghost" className="justify-start">
+                        Log in
+                      </Button>
+                    </Link>
+                    <Link
+                      href="/registration"
+                      className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Button className="justify-start">Sign up</Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </nav>
           </SheetContent>

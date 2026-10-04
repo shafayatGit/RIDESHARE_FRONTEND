@@ -2,88 +2,73 @@
 
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { GrainGradient } from "@paper-design/shaders-react";
 import { useForm } from "@tanstack/react-form";
-import { useRegistration } from "@/hooks/use-registration";
-import { registerSchema } from "@/zod/registration";
-import type { RegisterPayload } from "@/types/registration";
+import { loginSchema } from "@/zod/login";
+import { ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 function mapErrorMessage(message: string): string {
   const lower = message.toLowerCase();
-  if (lower.includes("email") && lower.includes("already"))
-    return "An account with this email already exists. Please try a different email.";
-  if (lower.includes("password"))
-    return "Please check your password requirements.";
+  if (
+    lower.includes("invalid") ||
+    lower.includes("incorrect") ||
+    lower.includes("unauthorized")
+  )
+    return "Invalid email or password. Please try again.";
+  if (lower.includes("not found"))
+    return "No account found with this email. Please register first.";
   if (lower.includes("network") || lower.includes("fetch"))
     return "Network error. Please check your connection and try again.";
-  return message || "Registration failed. Please try again.";
+  return message || "Login failed. Please try again.";
 }
 
 export default function LoginPageComponent() {
   const router = useRouter();
-  const { mutateAsync, isPending } = useRegistration();
-
+  const { login } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
       email: "",
-
       password: "",
     },
     validators: {
-      onChange: registerSchema,
+      onChange: loginSchema,
     },
     onSubmit: async ({ value }) => {
       setServerError(null);
+      setIsLoading(true);
       try {
-        const payload: LoginPayload = {
-          ...value,
-        };
-        const result = await mutateAsync(payload);
-
-        if (!result.success) {
-          setServerError(
-            mapErrorMessage(result.message || "Registration failed."),
-          );
-          return;
-        }
-
-        if (result.redirectPath) {
-          router.push(result.redirectPath);
-        }
-      } catch (err: unknown) {
+        const user = await login(value.email, value.password);
+        router.push(user.isAdmin ? "/admin" : "/dashboard");
+      } catch (err) {
         const message =
-          err instanceof Error ? err.message : "Unexpected error occurred";
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Unexpected error occurred";
         setServerError(mapErrorMessage(message));
+      } finally {
+        setIsLoading(false);
       }
     },
   });
 
   return (
     <section className="min-h-[calc(100vh-100px)] bg-white p-3 text-black">
-      <div className=" grid grid-cols-2 direction-rtl min-h-[calc(100vh-100px)] gap-6 ">
-        <div className=" relative hidden min-h-180 overflow-hidden rounded-md bg-black p-8 text-white sm:p-12 lg:flex lg:min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-2 direction-rtl min-h-[calc(100vh-100px)] gap-6">
+        <div className="relative hidden min-h-180 overflow-hidden rounded-md bg-black p-8 text-white sm:p-12 lg:flex lg:min-h-0">
           <GrainGradient
             speed={1}
             scale={1}
@@ -107,11 +92,11 @@ export default function LoginPageComponent() {
             </h2>
           </div>
         </div>
-        <div className="flex min-h-190 items-center rounded-md border border-black/20 bg-white px-3 py-12 sm:px-10 lg:min-h-0 lg:px-14 lg:py-28 xl:px-20">
-          <div className=" mx-auto flex w-full max-w-147.5 flex-col gap-10">
+        <div className="flex sm:min-h-190 items-center rounded-md border border-black/20 bg-white px-3 py-12 sm:px-10 lg:min-h-0 lg:px-14 lg:py-28 xl:px-20">
+          <div className="mx-auto flex w-full max-w-147.5 flex-col gap-10">
             <div>
               <h1 className="whitespace-nowrap text-center text-2xl font-semibold tracking-[-0.04em] sm:text-4xl lg:text-[42px] lg:leading-[1.05] xl:text-[50px]">
-                Login
+                Log in
               </h1>
             </div>
 
@@ -163,7 +148,7 @@ export default function LoginPageComponent() {
                             name={field.name}
                             type={showPassword ? "text" : "password"}
                             value={field.state.value}
-                            placeholder="Choose a password"
+                            placeholder="Enter your password"
                             className="pr-9"
                             onBlur={field.handleBlur}
                             onChange={(e) => field.handleChange(e.target.value)}
@@ -208,19 +193,29 @@ export default function LoginPageComponent() {
                     <Button
                       type="submit"
                       className="h-11 w-full text-sm sm:text-base"
-                      disabled={!canSubmit || isPending}
+                      disabled={!canSubmit || isSubmitting || isLoading}
                     >
-                      {isSubmitting || isPending ? (
+                      {isLoading ? (
                         <>
                           <Spinner />
-                          <span>Signing Up...</span>
+                          <span>Logging in...</span>
                         </>
                       ) : (
-                        "Sign Up"
+                        "Log in"
                       )}
                     </Button>
                   )}
                 </form.Subscribe>
+
+                <p className="text-center text-sm text-muted-foreground">
+                  Don&apos;t have an account?{" "}
+                  <a
+                    href="/registration"
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Sign up
+                  </a>
+                </p>
               </form>
             </CardContent>
           </div>

@@ -1,5 +1,3 @@
-import { Footer } from "@/components/shared/footer";
-import { Navbar } from "@/components/shared/navbar";
 import { CommunityBenefits } from "@/components/modules/Home/sections/community-benefits";
 import { CtaBanner } from "@/components/modules/Home/sections/cta-banner";
 import { Features } from "@/components/modules/Home/sections/features";

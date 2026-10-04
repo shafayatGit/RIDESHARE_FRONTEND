@@ -20,8 +20,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { GrainGradient } from "@paper-design/shaders-react";
 import { useForm } from "@tanstack/react-form";
-import { useRegistration } from "@/hooks/use-registration";
 import { registerSchema } from "@/zod/registration";
+import { useAuth } from "@/lib/auth-context";
 import type { RegisterPayload } from "@/types/registration";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useState } from "react";
@@ -40,7 +40,8 @@ function mapErrorMessage(message: string): string {
 
 export default function RegistrationPageComponent() {
   const router = useRouter();
-  const { mutateAsync, isPending } = useRegistration();
+  const { register } = useAuth();
+  const [isPending, setIsPending] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -58,27 +59,20 @@ export default function RegistrationPageComponent() {
     },
     onSubmit: async ({ value }) => {
       setServerError(null);
+      setIsPending(true);
       try {
         const payload: RegisterPayload = {
           ...value,
           gender: value.gender as "MALE" | "FEMALE",
         };
-        const result = await mutateAsync(payload);
-
-        if (!result.success) {
-          setServerError(
-            mapErrorMessage(result.message || "Registration failed."),
-          );
-          return;
-        }
-
-        if (result.redirectPath) {
-          router.push(result.redirectPath);
-        }
+        const { email } = await register(payload);
+        router.push(`/otp-verification?email=${encodeURIComponent(email)}`);
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Unexpected error occurred";
         setServerError(mapErrorMessage(message));
+      } finally {
+        setIsPending(false);
       }
     },
   });

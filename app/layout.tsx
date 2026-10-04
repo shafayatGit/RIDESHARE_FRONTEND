@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/shared/navbar";
 import { Footer } from "@/components/shared/footer";
 import QueryProvider from "@/providers/query-provider";
+import { AuthProvider } from "@/lib/auth-context";
+import { Toaster } from "@/components/ui/sonner";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -37,11 +39,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       )}
     >
       <body className="min-h-full flex flex-col">
-        <QueryProvider>
-          <Navbar />
-          {children}
-          <Footer />
-        </QueryProvider>
+        <AuthProvider>
+          <QueryProvider>
+            <Navbar />
+            {children}
+            <Footer />
+          </QueryProvider>
+          <Toaster position="top-right" />
+        </AuthProvider>
       </body>
     </html>
   );
