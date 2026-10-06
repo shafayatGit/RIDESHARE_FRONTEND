@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Select,
   SelectContent,
@@ -25,8 +26,20 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { api, ApiError } from "@/lib/api";
 import { distanceInMiles, formatCurrency } from "@/lib/format";
-import type { Ride, Vehicle } from "@/lib/types";
-import { Check, MapPin, Plus } from "lucide-react";
+import {
+  DESTINATION_COLOR,
+  DESTINATION_TARGET,
+  formatCoordinates,
+  ORIGIN_COLOR,
+  ORIGIN_TARGET,
+  STOP_COLOR,
+  type LocationField,
+  type LocationPoint,
+  type MapStop,
+} from "@/lib/locations";
+import type { Ride, RideEstimate, Vehicle } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { Check, MapPin, Plus, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -40,28 +53,122 @@ const DhakaLocationMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-64 w-full animate-pulse rounded-lg bg-muted" />
+      <div className="h-90 w-full animate-pulse rounded-lg bg-muted" />
     ),
   },
 );
 
-const steps = ["Route Details", "Schedule & Recurrence", "Preferences", "Confirmation"] as const;
+const steps = [
+  "Route Details",
+  "Schedule & Recurrence",
+  "Preferences",
+  "Confirmation",
+] as const;
 
-interface StopInput {
+interface StopField {
+  id: string;
   address: string;
-  lat: string;
-  lng: string;
+  point: LocationPoint | null;
 }
 
-const emptyStop = (): StopInput => ({ address: "", lat: "", lng: "" });
+const emptyField = (): LocationField => ({ address: "", point: null });
+
+interface LocationCardProps {
+  glyph: string;
+  color: string;
+  label: string;
+  field: LocationField;
+  placeholder: string;
+  active: boolean;
+  onAddressChange: (address: string) => void;
+  onPickOnMap: () => void;
+  onRemove?: () => void;
+}
+
+function LocationCard({
+  glyph,
+  color,
+  label,
+  field,
+  placeholder,
+  active,
+  onAddressChange,
+  onPickOnMap,
+  onRemove,
+}: LocationCardProps) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border p-3 transition-colors",
+        active && "border-primary bg-accent/30",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className="flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={{ backgroundColor: color }}
+          >
+            {glyph}
+          </span>
+          <Label>{label}</Label>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant={active ? "default" : "outline"}
+            size="xs"
+            onClick={onPickOnMap}
+          >
+            <MapPin />
+            {field.point
+              ? active
+                ? "Picking…"
+                : "Edit on map"
+              : "Pick on map"}
+          </Button>
+          {onRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={onRemove}
+              aria-label={`Remove ${label}`}
+            >
+              <Trash2 />
+            </Button>
+          )}
+        </div>
+      </div>
+      <Input
+        placeholder={placeholder}
+        value={field.address}
+        onChange={(e) => onAddressChange(e.target.value)}
+      />
+      <p
+        className={cn(
+          "text-xs",
+          field.point ? "text-muted-foreground" : "text-destructive",
+        )}
+      >
+        {field.point
+          ? `Coordinates from map: ${formatCoordinates(field.point)}`
+          : "Coordinates are read from the map — pick this point to set them."}
+      </p>
+    </div>
+  );
+}
 
 export default function OfferRidePage() {
   const router = useRouter();
   const [step, setStep] = React.useState(0);
 
-  const [origin, setOrigin] = React.useState<StopInput>(emptyStop());
-  const [destination, setDestination] = React.useState<StopInput>(emptyStop());
-  const [stops, setStops] = React.useState<StopInput[]>([]);
+  const [origin, setOrigin] = React.useState<LocationField>(emptyField());
+  const [destination, setDestination] =
+    React.useState<LocationField>(emptyField());
+  const [stops, setStops] = React.useState<StopField[]>([]);
+  const [activeTarget, setActiveTarget] = React.useState<string>(ORIGIN_TARGET);
+  const mapRef = React.useRef<HTMLDivElement>(null);
 
   const [departureDate, setDepartureDate] = React.useState("");
   const [departureTime, setDepartureTime] = React.useState("");
@@ -70,10 +177,15 @@ export default function OfferRidePage() {
   const [vehicles, setVehicles] = React.useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = React.useState("");
   const [totalSeats, setTotalSeats] = React.useState(3);
-  const [pricePerSeat, setPricePerSeat] = React.useState("5.00");
+  const [pricePerSeat, setPricePerSeat] = React.useState("1.00");
   const [isFemaleOnly, setIsFemaleOnly] = React.useState(false);
   const [addVehicleOpen, setAddVehicleOpen] = React.useState(false);
+  const [isLoadingVehicles, setIsLoadingVehicles] = React.useState(true);
+  const [isSavingVehicle, setIsSavingVehicle] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isEstimating, setIsEstimating] = React.useState(false);
+  const [estimate, setEstimate] = React.useState<RideEstimate | null>(null);
+  const estimateAbortRef = React.useRef<AbortController | null>(null);
 
   React.useEffect(() => {
     api
@@ -82,43 +194,139 @@ export default function OfferRidePage() {
         setVehicles(v);
         if (v.length > 0) setVehicleId(v[0].id);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setIsLoadingVehicles(false));
   }, []);
 
-  const originLat = Number(origin.lat) || 0;
-  const originLng = Number(origin.lng) || 0;
-  const destLat = Number(destination.lat) || 0;
-  const destLng = Number(destination.lng) || 0;
-  const hasCoords = origin.lat && origin.lng && destination.lat && destination.lng;
-  const distance = hasCoords ? distanceInMiles(originLat, originLng, destLat, destLng) : 0;
+  const routePoints = React.useMemo(
+    () =>
+      [origin.point, ...stops.map((s) => s.point), destination.point].filter(
+        (point): point is LocationPoint => point !== null,
+      ),
+    [origin.point, stops, destination.point],
+  );
+
+  const distance = React.useMemo(
+    () =>
+      routePoints.reduce(
+        (total, point, i) =>
+          i === 0
+            ? total
+            : total +
+              distanceInMiles(
+                routePoints[i - 1].lat,
+                routePoints[i - 1].lng,
+                point.lat,
+                point.lng,
+              ),
+        0,
+      ),
+    [routePoints],
+  );
+
+  const hasCoords =
+    routePoints.length === stops.length + 2 && routePoints.length >= 2;
   const baseFuelCost = distance * 0.17;
   const parkingSplit = 1.5;
   const maintenanceBuffer = distance * 0.05;
   const suggestedContribution = baseFuelCost + parkingSplit + maintenanceBuffer;
 
-  const canContinueStep0 = origin.address && destination.address;
-  const canContinueStep1 = departureDate && departureTime;
-  const canContinueStep2 = vehicleId && totalSeats > 0 && Number(pricePerSeat) > 0;
+  // Estimate price per seat based on historical average price/mile (with env
+  // fallback). Debounced and re-run whenever the route changes.
+  React.useEffect(() => {
+    if (!hasCoords) {
+      return;
+    }
 
-  const addStop = () => setStops((s) => [...s, emptyStop()]);
-  const removeStop = (index: number) => setStops((s) => s.filter((_, i) => i !== index));
-  const updateStop = (index: number, patch: Partial<StopInput>) =>
-    setStops((s) => s.map((stop, i) => (i === index ? { ...stop, ...patch } : stop)));
+    // Debounce: avoid hammering the API while the user is dragging markers.
+    const timeoutId = setTimeout(async () => {
+      estimateAbortRef.current?.abort();
+      const controller = new AbortController();
+      estimateAbortRef.current = controller;
 
-  const handleLocationSelect = (
-    type: "origin" | "destination",
-    point: { lat: number; lng: number; address: string },
-  ) => {
-    const value: StopInput = {
-      address: point.address,
-      lat: String(point.lat),
-      lng: String(point.lng),
+      setIsEstimating(true);
+      try {
+        const points = routePoints.map((p) => ({ lat: p.lat, lng: p.lng }));
+        const originP = points[0];
+        const destP = points[points.length - 1];
+        const stopsP = points.slice(1, -1);
+
+        const est = await api.post<RideEstimate>("/ride/estimate", {
+          originLat: originP.lat,
+          originLng: originP.lng,
+          destinationLat: destP.lat,
+          destinationLng: destP.lng,
+          ...(stopsP.length > 0 ? { stops: stopsP } : {}),
+        });
+
+        if (!controller.signal.aborted) {
+          setEstimate(est);
+          const suggested = est.suggestedPricePerSeat;
+          if (suggested >= 0) {
+            setPricePerSeat(suggested.toFixed(2));
+          }
+        }
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          console.warn("Failed to estimate ride price", err);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsEstimating(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      clearTimeout(timeoutId);
+      estimateAbortRef.current?.abort();
     };
-    if (type === "origin") setOrigin(value);
-    else setDestination(value);
+  }, [hasCoords, routePoints]);
+
+  const canContinueStep0 =
+    origin.address.trim() &&
+    origin.point &&
+    destination.address.trim() &&
+    destination.point &&
+    stops.every((s) => s.address.trim() && s.point);
+  const canContinueStep1 = departureDate && departureTime;
+  const canContinueStep2 =
+    vehicleId && totalSeats > 0 && Number(pricePerSeat) > 0;
+
+  const focusOnMap = React.useCallback((target: string) => {
+    setActiveTarget(target);
+    mapRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  const nextStopId = React.useRef(0);
+  const addStop = () => {
+    nextStopId.current += 1;
+    const id = `stop-${nextStopId.current}`;
+    setStops((s) => [...s, { id, address: "", point: null }]);
+    focusOnMap(id);
   };
+  const removeStop = (id: string) => {
+    setStops((s) => s.filter((stop) => stop.id !== id));
+    setActiveTarget((current) => (current === id ? ORIGIN_TARGET : current));
+  };
+  const updateStopAddress = (id: string, address: string) =>
+    setStops((s) =>
+      s.map((stop) => (stop.id === id ? { ...stop, address } : stop)),
+    );
+
+  const handleOriginSelect = (point: LocationPoint) =>
+    setOrigin({ address: point.address, point });
+  const handleDestinationSelect = (point: LocationPoint) =>
+    setDestination({ address: point.address, point });
+  const handleStopSelect = (id: string, point: LocationPoint) =>
+    setStops((s) =>
+      s.map((stop) =>
+        stop.id === id ? { ...stop, address: point.address, point } : stop,
+      ),
+    );
 
   const handleAddVehicle = async (form: FormData) => {
+    setIsSavingVehicle(true);
     try {
       const vehicle = await api.post<Vehicle>("/vehicle/create", {
         model: form.get("model"),
@@ -131,61 +339,77 @@ export default function OfferRidePage() {
       setAddVehicleOpen(false);
       toast.success("Vehicle added");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to add vehicle");
+      toast.error(
+        err instanceof ApiError ? err.message : "Failed to add vehicle",
+      );
+    } finally {
+      setIsSavingVehicle(false);
     }
   };
 
   const handleSubmit = async () => {
+    if (!origin.point || !destination.point || stops.some((s) => !s.point)) {
+      toast.error("Every stop needs a location picked on the map");
+      setStep(0);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const departureTimeIso = new Date(`${departureDate}T${departureTime}`).toISOString();
+      const departureTimeIso = new Date(
+        `${departureDate}T${departureTime}`,
+      ).toISOString();
 
+      const checkpoints = [
+        {
+          type: "PICKUP" as const,
+          address: origin.address.trim(),
+          lat: origin.point.lat,
+          lng: origin.point.lng,
+        },
+        ...stops.map((stop) => ({
+          type: "STOP" as const,
+          address: stop.address.trim(),
+          lat: stop.point!.lat,
+          lng: stop.point!.lng,
+        })),
+        {
+          type: "DROP" as const,
+          address: destination.address.trim(),
+          lat: destination.point.lat,
+          lng: destination.point.lng,
+        },
+      ];
+
+      // The ride and every checkpoint are created in one backend transaction, so
+      // a rejected route can never leave a half-posted ride behind.
       const ride = await api.post<Ride>("/ride/create", {
         vehicleId,
-        originAddress: origin.address,
-        originLat,
-        originLng,
-        destinationAddress: destination.address,
-        destinationLat: destLat,
-        destinationLng: destLng,
+        originAddress: origin.address.trim(),
+        originLat: origin.point.lat,
+        originLng: origin.point.lng,
+        destinationAddress: destination.address.trim(),
+        destinationLat: destination.point.lat,
+        destinationLng: destination.point.lng,
         departureTime: departureTimeIso,
         totalSeats,
         pricePerSeat: Number(pricePerSeat),
         isFemaleOnly,
+        checkpoints,
       });
-
-      const checkpointPayloads = [
-        { type: "PICKUP", address: origin.address, lat: originLat, lng: originLng, sequenceOrder: 1 },
-        ...stops.map((stop, i) => ({
-          type: "STOP",
-          address: stop.address,
-          lat: Number(stop.lat) || 0,
-          lng: Number(stop.lng) || 0,
-          sequenceOrder: i + 2,
-        })),
-        {
-          type: "DROP",
-          address: destination.address,
-          lat: destLat,
-          lng: destLng,
-          sequenceOrder: stops.length + 2,
-        },
-      ];
-
-      await Promise.all(
-        checkpointPayloads.map((cp) =>
-          api.post("/ride-checkpoint/create", { rideId: ride.id, ...cp }),
-        ),
-      );
 
       toast.success("Ride posted successfully");
       router.push(`/find/${ride.id}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to post ride");
+      toast.error(
+        err instanceof ApiError ? err.message : "Failed to post ride",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const mapStops: MapStop[] = stops.map(({ id, point }) => ({ id, point }));
 
   return (
     <RequireAuth>
@@ -194,7 +418,10 @@ export default function OfferRidePage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[200px_1fr_260px]">
             <aside className="flex flex-row gap-2 lg:flex-col">
               {steps.map((label, i) => (
-                <div key={label} className="flex items-center gap-2 lg:items-start">
+                <div
+                  key={label}
+                  className="flex items-center gap-2 lg:items-start"
+                >
                   <div
                     className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${
                       i < step
@@ -222,111 +449,78 @@ export default function OfferRidePage() {
               <CardContent className="flex flex-col gap-4">
                 {step === 0 && (
                   <>
-                    <div className="flex flex-col gap-1.5">
-                      <Label>Origin</Label>
-                      <Input
-                        placeholder="Campus Main Gate / Apartment Complex"
-                        value={origin.address}
-                        onChange={(e) => setOrigin({ ...origin, address: e.target.value })}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {origin.lat && origin.lng
-                          ? `Coordinates: ${origin.lat}, ${origin.lng}`
-                          : "Tap the map below to set the pickup point."}
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg border p-3">
+                    <div ref={mapRef} className="rounded-lg border p-3">
                       <DhakaLocationMap
-                        origin={
-                          origin.lat && origin.lng
-                            ? {
-                                lat: Number(origin.lat),
-                                lng: Number(origin.lng),
-                                address: origin.address,
-                              }
-                            : null
-                        }
-                        destination={
-                          destination.lat && destination.lng
-                            ? {
-                                lat: Number(destination.lat),
-                                lng: Number(destination.lng),
-                                address: destination.address,
-                              }
-                            : null
-                        }
-                        onOriginSelect={(point) =>
-                          handleLocationSelect("origin", point)
-                        }
-                        onDestinationSelect={(point) =>
-                          handleLocationSelect("destination", point)
-                        }
+                        origin={origin.point}
+                        destination={destination.point}
+                        stops={mapStops}
+                        activeTarget={activeTarget}
+                        onActiveTargetChange={setActiveTarget}
+                        onOriginSelect={handleOriginSelect}
+                        onDestinationSelect={handleDestinationSelect}
+                        onStopSelect={handleStopSelect}
                       />
                     </div>
 
-                    {stops.map((stop, i) => (
-                      <div key={i} className="flex flex-col gap-1.5 rounded-lg border border-dashed p-3">
-                        <div className="flex items-center justify-between">
-                          <Label>Intermediate Pickup {i + 1}</Label>
-                          <button
-                            type="button"
-                            onClick={() => removeStop(i)}
-                            className="text-xs text-destructive hover:underline"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <Input
+                    <div className="flex flex-col gap-3">
+                      <LocationCard
+                        glyph="A"
+                        color={ORIGIN_COLOR}
+                        label="Origin (Pickup)"
+                        field={origin}
+                        placeholder="Campus Main Gate / Apartment Complex"
+                        active={activeTarget === ORIGIN_TARGET}
+                        onAddressChange={(address) =>
+                          setOrigin((current) => ({ ...current, address }))
+                        }
+                        onPickOnMap={() => focusOnMap(ORIGIN_TARGET)}
+                      />
+
+                      {stops.map((stop, i) => (
+                        <LocationCard
+                          key={stop.id}
+                          glyph={String(i + 1)}
+                          color={STOP_COLOR}
+                          label={`Intermediate Pickup ${i + 1}`}
+                          field={stop}
                           placeholder="Science Park / Library Square"
-                          value={stop.address}
-                          onChange={(e) => updateStop(i, { address: e.target.value })}
+                          active={activeTarget === stop.id}
+                          onAddressChange={(address) =>
+                            updateStopAddress(stop.id, address)
+                          }
+                          onPickOnMap={() => focusOnMap(stop.id)}
+                          onRemove={() => removeStop(stop.id)}
                         />
-                        <div className="grid grid-cols-2 gap-2">
-                          <Input
-                            type="number"
-                            step="any"
-                            placeholder="Latitude"
-                            value={stop.lat}
-                            onChange={(e) => updateStop(i, { lat: e.target.value })}
-                          />
-                          <Input
-                            type="number"
-                            step="any"
-                            placeholder="Longitude"
-                            value={stop.lng}
-                            onChange={(e) => updateStop(i, { lng: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      ))}
 
-                    <button
-                      type="button"
-                      onClick={addStop}
-                      className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                    >
-                      <Plus className="size-4" /> Add another stop
-                    </button>
+                      <button
+                        type="button"
+                        onClick={addStop}
+                        className="flex items-center gap-1.5 self-start text-sm font-medium text-primary hover:underline"
+                      >
+                        <Plus className="size-4" /> Add another stop
+                      </button>
 
-                    <div className="flex flex-col gap-1.5">
-                      <Label>Final Destination</Label>
-                      <Input
+                      <LocationCard
+                        glyph="B"
+                        color={DESTINATION_COLOR}
+                        label="Final Destination (Drop-off)"
+                        field={destination}
                         placeholder="Enter drop-off location"
-                        value={destination.address}
-                        onChange={(e) =>
-                          setDestination({
-                            ...destination,
-                            address: e.target.value,
-                          })
+                        active={activeTarget === DESTINATION_TARGET}
+                        onAddressChange={(address) =>
+                          setDestination((current) => ({ ...current, address }))
                         }
+                        onPickOnMap={() => focusOnMap(DESTINATION_TARGET)}
                       />
-                      <p className="text-xs text-muted-foreground">
-                        {destination.lat && destination.lng
-                          ? `Coordinates: ${destination.lat}, ${destination.lng}`
-                          : "Use the map above to set the drop-off point."}
-                      </p>
                     </div>
+
+                    {!canContinueStep0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Every point needs an address and a location picked on
+                        the map before continuing.
+                      </p>
+                    )}
                   </>
                 )}
 
@@ -357,14 +551,16 @@ export default function OfferRidePage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="one-time">One-time Trip</SelectItem>
+                          <SelectItem value="one-time">
+                            One-time Trip
+                          </SelectItem>
                           <SelectItem value="weekdays">Weekdays</SelectItem>
                           <SelectItem value="daily">Daily</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">
-                        Recurring trips are not yet persisted — this ride will be posted as a
-                        one-time trip for now.
+                        Recurring trips are not yet persisted — this ride will
+                        be posted as a one-time trip for now.
                       </p>
                     </div>
                   </>
@@ -375,8 +571,16 @@ export default function OfferRidePage() {
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between">
                         <Label>Vehicle</Label>
-                        <Dialog open={addVehicleOpen} onOpenChange={setAddVehicleOpen}>
-                          <Button type="button" variant="link" size="sm" onClick={() => setAddVehicleOpen(true)}>
+                        <Dialog
+                          open={addVehicleOpen}
+                          onOpenChange={setAddVehicleOpen}
+                        >
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            onClick={() => setAddVehicleOpen(true)}
+                          >
                             + Add vehicle
                           </Button>
                           <DialogContent>
@@ -390,23 +594,52 @@ export default function OfferRidePage() {
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="flex flex-col gap-1.5">
                                   <Label>Model</Label>
-                                  <Input name="model" required placeholder="Tesla Model 3" />
+                                  <Input
+                                    name="model"
+                                    required
+                                    placeholder="Tesla Model 3"
+                                  />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                   <Label>Color</Label>
-                                  <Input name="color" required placeholder="White" />
+                                  <Input
+                                    name="color"
+                                    required
+                                    placeholder="White"
+                                  />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                   <Label>Plate</Label>
-                                  <Input name="plate" required placeholder="ECC-2024" />
+                                  <Input
+                                    name="plate"
+                                    required
+                                    placeholder="ECC-2024"
+                                  />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                   <Label>Seats</Label>
-                                  <Input name="seat_capacity" type="number" min={1} required defaultValue={4} />
+                                  <Input
+                                    name="seat_capacity"
+                                    type="number"
+                                    min={1}
+                                    required
+                                    defaultValue={4}
+                                  />
                                 </div>
                               </div>
                               <DialogFooter>
-                                <Button type="submit">Save vehicle</Button>
+                                <Button
+                                  type="submit"
+                                  disabled={isSavingVehicle}
+                                >
+                                  {isSavingVehicle ? (
+                                    <>
+                                      <Spinner /> Saving…
+                                    </>
+                                  ) : (
+                                    "Save vehicle"
+                                  )}
+                                </Button>
                               </DialogFooter>
                             </form>
                           </DialogContent>
@@ -424,10 +657,17 @@ export default function OfferRidePage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {vehicles.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          You don&apos;t have any vehicles yet — add one to continue.
+                      {isLoadingVehicles ? (
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Spinner /> Loading your vehicles…
                         </p>
+                      ) : (
+                        vehicles.length === 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            You don&apos;t have any vehicles yet — add one to
+                            continue.
+                          </p>
+                        )
                       )}
                     </div>
 
@@ -438,7 +678,9 @@ export default function OfferRidePage() {
                           type="number"
                           min={1}
                           value={totalSeats}
-                          onChange={(e) => setTotalSeats(Number(e.target.value))}
+                          onChange={(e) =>
+                            setTotalSeats(Number(e.target.value))
+                          }
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
@@ -450,6 +692,28 @@ export default function OfferRidePage() {
                           value={pricePerSeat}
                           onChange={(e) => setPricePerSeat(e.target.value)}
                         />
+                        <p className="text-xs text-muted-foreground">
+                          {isEstimating && hasCoords ? (
+                            "Calculating suggested price from recent rides…"
+                          ) : estimate && hasCoords ? (
+                            <>
+                              Suggested:{" "}
+                              {formatCurrency(estimate.suggestedPricePerSeat)}
+                              {" · "}
+                              {estimate.rateSource === "RIDE_AVERAGE"
+                                ? `avg ${formatCurrency(estimate.ratePerMile)}/mi`
+                                : `default ${formatCurrency(estimate.ratePerMile)}/mi`}
+                              {estimate.sampleRideCount > 0
+                                ? ` from ${estimate.sampleRideCount} ride${estimate.sampleRideCount === 1 ? "" : "s"}`
+                                : " (no rides yet)"}
+                              {distance > 0 && ` · ${distance.toFixed(1)} mi`}
+                            </>
+                          ) : hasCoords ? (
+                            "Enter a price or wait for a suggested one."
+                          ) : (
+                            "Pick origin and destination on the map to see a suggested price."
+                          )}
+                        </p>
                       </div>
                     </div>
 
@@ -460,7 +724,10 @@ export default function OfferRidePage() {
                           Visible only to verified female community members.
                         </p>
                       </div>
-                      <Switch checked={isFemaleOnly} onCheckedChange={setIsFemaleOnly} />
+                      <Switch
+                        checked={isFemaleOnly}
+                        onCheckedChange={setIsFemaleOnly}
+                      />
                     </div>
                   </>
                 )}
@@ -471,7 +738,8 @@ export default function OfferRidePage() {
                       <span className="text-muted-foreground">Route</span>
                       <span className="text-right font-medium">
                         {origin.address} → {destination.address}
-                        {stops.length > 0 && ` (+${stops.length} stop${stops.length > 1 ? "s" : ""})`}
+                        {stops.length > 0 &&
+                          ` (+${stops.length} stop${stops.length > 1 ? "s" : ""})`}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -487,15 +755,31 @@ export default function OfferRidePage() {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Seats / Price</span>
+                      <span className="text-muted-foreground">
+                        Seats / Price
+                      </span>
                       <span className="font-medium">
                         {totalSeats} seats · {formatCurrency(pricePerSeat)}/seat
                       </span>
                     </div>
-                    {isFemaleOnly && <Badge variant="secondary" className="w-fit">Female-Only</Badge>}
+                    {isFemaleOnly && (
+                      <Badge variant="secondary" className="w-fit">
+                        Female-Only
+                      </Badge>
+                    )}
                     <Separator />
-                    <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full">
-                      {isSubmitting ? "Posting ride..." : "Post Ride"}
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="w-full"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Spinner /> Posting ride…
+                        </>
+                      ) : (
+                        "Post Ride"
+                      )}
                     </Button>
                   </div>
                 )}
@@ -533,16 +817,26 @@ export default function OfferRidePage() {
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Base fuel cost (approx.)</span>
-                    <span>{hasCoords ? formatCurrency(baseFuelCost) : "—"}</span>
+                    <span className="text-muted-foreground">
+                      Base fuel cost (approx.)
+                    </span>
+                    <span>
+                      {hasCoords ? formatCurrency(baseFuelCost) : "—"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Campus parking split</span>
+                    <span className="text-muted-foreground">
+                      Campus parking split
+                    </span>
                     <span>{formatCurrency(parkingSplit)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Maintenance buffer</span>
-                    <span>{hasCoords ? formatCurrency(maintenanceBuffer) : "—"}</span>
+                    <span className="text-muted-foreground">
+                      Maintenance buffer
+                    </span>
+                    <span>
+                      {hasCoords ? formatCurrency(maintenanceBuffer) : "—"}
+                    </span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-medium">
@@ -552,21 +846,70 @@ export default function OfferRidePage() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Based on current gas prices and {hasCoords ? `${distance.toFixed(1)} mi` : "—"} total
-                    route.
+                    Based on current gas prices and{" "}
+                    {routePoints.length > 1 ? `${distance.toFixed(1)} mi` : "—"}{" "}
+                    total route across {routePoints.length} mapped{" "}
+                    {routePoints.length === 1 ? "point" : "points"}.
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Route Preview</CardTitle>
+                  <CardTitle className="text-sm">Route Stops</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex h-32 items-center justify-center rounded-lg border border-dashed bg-muted/50 text-xs text-muted-foreground">
-                    <MapPin className="mr-1.5 size-4" />
-                    {hasCoords ? `${distance.toFixed(1)} mi route` : "Enter coordinates to preview"}
-                  </div>
+                  <ol className="flex flex-col gap-2 text-xs">
+                    <li className="flex items-start gap-2">
+                      <span
+                        className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                        style={{ backgroundColor: ORIGIN_COLOR }}
+                      >
+                        A
+                      </span>
+                      <span
+                        className={cn(!origin.point && "text-muted-foreground")}
+                      >
+                        {origin.address || "Origin not set"}
+                      </span>
+                    </li>
+                    {stops.map((stop, i) => (
+                      <li key={stop.id} className="flex items-start gap-2">
+                        <span
+                          className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                          style={{ backgroundColor: STOP_COLOR }}
+                        >
+                          {i + 1}
+                        </span>
+                        <span
+                          className={cn(!stop.point && "text-muted-foreground")}
+                        >
+                          {stop.address || `Stop ${i + 1} not set`}
+                        </span>
+                      </li>
+                    ))}
+                    <li className="flex items-start gap-2">
+                      <span
+                        className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                        style={{ backgroundColor: DESTINATION_COLOR }}
+                      >
+                        B
+                      </span>
+                      <span
+                        className={cn(
+                          !destination.point && "text-muted-foreground",
+                        )}
+                      >
+                        {destination.address || "Destination not set"}
+                      </span>
+                    </li>
+                  </ol>
+                  {routePoints.length > 1 && (
+                    <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="size-3.5" />
+                      {distance.toFixed(1)} mi total route
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </aside>

@@ -6,6 +6,7 @@ import { Navbar } from "@/components/shared/navbar";
 import { Footer } from "@/components/shared/footer";
 import QueryProvider from "@/providers/query-provider";
 import { AuthProvider } from "@/lib/auth-context";
+import { FavoritesProvider } from "@/lib/favorites-context";
 import { Toaster } from "@/components/ui/sonner";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
@@ -41,9 +42,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <QueryProvider>
-            <Navbar />
-            {children}
-            <Footer />
+            <FavoritesProvider>
+              <Navbar />
+              {children}
+              <Footer />
+            </FavoritesProvider>
           </QueryProvider>
           <Toaster position="top-right" />
         </AuthProvider>

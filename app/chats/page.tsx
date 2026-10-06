@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatCurrency, formatTime } from "@/lib/format";
@@ -30,7 +31,33 @@ function ChatsContent() {
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [draft, setDraft] = React.useState("");
   const [search, setSearch] = React.useState("");
+  const [ridesState, setRidesState] = React.useState<{
+    key: string;
+    loading: boolean;
+  }>({ key: "", loading: true });
+  // Messages arrive over the socket, so track which ride is still loading and
+  // reset during render when the selection changes.
+  const [msgState, setMsgState] = React.useState<{
+    rideId: string | null;
+    loading: boolean;
+  }>({ rideId: null, loading: false });
   const bottomRef = React.useRef<HTMLDivElement>(null);
+
+  if (msgState.rideId !== selectedRideId) {
+    setMsgState({
+      rideId: selectedRideId,
+      loading: Boolean(selectedRideId && accessToken),
+    });
+  }
+  const isLoadingMessages =
+    msgState.rideId === selectedRideId && msgState.loading;
+
+  const ridesKey = `${user?.id ?? ""}:${requestedRideId ?? ""}`;
+  const isLoadingRides =
+    ridesState.key === ridesKey && ridesState.loading;
+  if (ridesState.key !== ridesKey) {
+    setRidesState({ key: ridesKey, loading: Boolean(user) });
+  }
 
   React.useEffect(() => {
     if (!user) return;
@@ -49,7 +76,10 @@ function ChatsContent() {
         setRides(myRides);
         setSelectedRideId(requestedRideId ?? myRides[0]?.id ?? null);
       })
-      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load ride chats"));
+      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load ride chats"))
+      .finally(() =>
+        setRidesState((prev) => ({ ...prev, loading: false })),
+      );
   }, [user, requestedRideId]);
 
   React.useEffect(() => {
@@ -57,7 +87,10 @@ function ChatsContent() {
 
     const socket = getSocket(accessToken);
 
-    const onMessagesLoad = (loaded: ChatMessage[]) => setMessages(loaded);
+    const onMessagesLoad = (loaded: ChatMessage[]) => {
+      setMessages(loaded);
+      setMsgState((prev) => ({ ...prev, loading: false }));
+    };
     const onMessageNew = (message: ChatMessage) => {
       if (message.rideId === selectedRideId) setMessages((prev) => [...prev, message]);
     };
@@ -71,12 +104,12 @@ function ChatsContent() {
 
     socket.emit("ride:join", { rideId: selectedRideId });
 
-    return () => {
-      socket.off("messages:load", onMessagesLoad);
-      socket.off("message:new", onMessageNew);
-      socket.off("error", onError);
-      socket.off("connect_error", onConnectError);
-    };
+return () => {
+          socket.off("messages:load", onMessagesLoad);
+          socket.off("message:new", onMessageNew);
+          socket.off("error", onError);
+          socket.off("connect_error", onConnectError);
+        };
   }, [accessToken, selectedRideId]);
 
   React.useEffect(() => {
@@ -108,7 +141,11 @@ function ChatsContent() {
           />
         </div>
         <ScrollArea className="flex-1">
-          {filteredRides.length === 0 ? (
+          {isLoadingRides ? (
+            <div className="flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
+              <Spinner /> Loading rides…
+            </div>
+          ) : filteredRides.length === 0 ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               {rides.length === 0
                 ? "You'll see chats here once you post or join a ride."
@@ -164,12 +201,18 @@ function ChatsContent() {
 
             <ScrollArea className="flex-1 p-4">
               <div className="flex flex-col gap-3">
-                {messages.length === 0 && (
-                  <p className="text-center text-sm text-muted-foreground">
-                    No messages yet — say hello to coordinate pickup details.
-                  </p>
-                )}
-                {messages.map((message) => {
+                {isLoadingMessages ? (
+                  <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                    <Spinner /> Loading messages…
+                  </div>
+                ) : (
+                  <>
+                    {messages.length === 0 && (
+                      <p className="text-center text-sm text-muted-foreground">
+                        No messages yet — say hello to coordinate pickup details.
+                      </p>
+                    )}
+                    {messages.map((message) => {
                   const isOwn = message.senderId === user?.id;
                   return (
                     <div key={message.id} className={cn("flex flex-col", isOwn ? "items-end" : "items-start")}>
@@ -192,6 +235,8 @@ function ChatsContent() {
                     </div>
                   );
                 })}
+                  </>
+                )}
                 <div ref={bottomRef} />
               </div>
             </ScrollArea>

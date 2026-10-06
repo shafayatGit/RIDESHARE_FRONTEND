@@ -2,6 +2,8 @@
 
 import { RequireAuth } from "@/components/auth/require-auth";
 
+import { DriverReviews } from "@/components/rides/driver-reviews";
+import { FavoriteButton } from "@/components/rides/favorite-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { StarRating } from "@/components/ui/star-rating";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { distanceInMiles, formatCurrency, formatDateTime, initials } from "@/lib/format";
@@ -36,7 +40,6 @@ import {
   MapPin,
   PawPrint,
   ShieldCheck,
-  Star,
   UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
@@ -252,6 +255,10 @@ export default function RideDetailPage() {
                 </CardContent>
               </Card>
 
+              {ride.driver && !isOwnRide && (
+                <DriverReviews riderId={ride.driver.id} />
+              )}
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Ride Guidelines</CardTitle>
@@ -285,13 +292,28 @@ export default function RideDetailPage() {
                       <AvatarImage src={ride.driver?.image ?? undefined} alt={ride.driver?.name} />
                       <AvatarFallback>{initials(ride.driver?.name ?? "D")}</AvatarFallback>
                     </Avatar>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium">{ride.driver?.name}</p>
-                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Star className="size-3 fill-current text-amber-500" />
-                        {ride.driver?.avgRatingAsDriver.toFixed(1)}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <StarRating
+                          value={Math.round(ride.driver?.avgRatingAsDriver ?? 0)}
+                          readOnly
+                          size="sm"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {ride.driver?.avgRatingAsDriver.toFixed(1)}
+                          {ride.driver?.ratingCount
+                            ? ` (${ride.driver.ratingCount})`
+                            : " · no ratings yet"}
+                        </span>
+                      </div>
                     </div>
+                    {ride.driver && !isOwnRide && (
+                      <FavoriteButton
+                        riderId={ride.driver.id}
+                        riderName={ride.driver.name}
+                      />
+                    )}
                   </div>
 
                   {ride.vehicle && (
@@ -442,7 +464,13 @@ export default function RideDetailPage() {
 
                           <DialogFooter>
                             <Button onClick={handleBook} disabled={isBooking}>
-                              {isBooking ? "Booking..." : "Confirm Booking"}
+                              {isBooking ? (
+                                <>
+                                  <Spinner /> Booking…
+                                </>
+                              ) : (
+                                "Confirm Booking"
+                              )}
                             </Button>
                           </DialogFooter>
                         </DialogContent>

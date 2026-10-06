@@ -37,10 +37,15 @@ function DashboardContent() {
   const [pendingBookings, setPendingBookings] = React.useState<Booking[]>([]);
   const [requestsLoading, setRequestsLoading] = React.useState(true);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [isUpdatingRideId, setIsUpdatingRideId] = React.useState<string | null>(
+    null,
+  );
 
   const loadRides = React.useCallback(() => {
+    // "/ride/my" rather than "/ride": the public list hides fully booked rides,
+    // which would also hide this driver's own ride once every seat is taken.
     api
-      .get<Ride[]>("/ride")
+      .get<Ride[]>("/ride/my")
       .then(setRides)
       .catch((err) =>
         toast.error(
@@ -90,17 +95,34 @@ function DashboardContent() {
       (r.status === "SCHEDULED" || r.status === "ONGOING"),
   );
 
-  const handleFinish = async (rideId: string) => {
+  const handleStatusChange = async (
+    rideId: string,
+    status: "ONGOING" | "COMPLETED",
+  ) => {
+    setIsUpdatingRideId(rideId);
     try {
-      await api.patch(`/ride/${rideId}`, { status: "COMPLETED" });
-      toast.success("Ride marked as finished");
+      await api.patch(`/ride/${rideId}`, { status });
+      toast.success(
+        status === "COMPLETED"
+          ? "Ride marked as finished"
+          : "Ride started — passengers can now track it",
+      );
       loadRides();
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : "Failed to update ride",
       );
+    } finally {
+      setIsUpdatingRideId(null);
     }
   };
+
+  const handleStartRide = (rideId: string) =>
+    handleStatusChange(rideId, "ONGOING");
+
+  const handleFinish = (rideId: string) =>
+    handleStatusChange(rideId, "COMPLETED");
 
   const handleDeclineBooking = async (bookingId: string) => {
     try {
@@ -191,8 +213,23 @@ function DashboardContent() {
                             Chat
                           </Link>
                         </Button>
-                        <Button size="sm" onClick={() => handleFinish(ride.id)}>
-                          Finished
+                        <span className="self-center text-xs text-muted-foreground">
+                          {ride.availableSeats}/{ride.totalSeats} seats left
+                        </span>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            ride.status === "SCHEDULED"
+                              ? void handleStartRide(ride.id)
+                              : void handleFinish(ride.id)
+                          }
+                          disabled={isUpdatingRideId === ride.id}
+                        >
+                          {isUpdatingRideId === ride.id
+                            ? "Updating..."
+                            : ride.status === "SCHEDULED"
+                              ? "Start Ride"
+                              : "Finished"}
                         </Button>
                       </div>
                     </div>
