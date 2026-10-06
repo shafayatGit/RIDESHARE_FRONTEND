@@ -14,10 +14,55 @@ export interface User {
   phoneNumber?: string | null;
   isVerified: boolean;
   avgRatingAsDriver: number;
+  ratingCount: number;
   cancellationCount: number;
   accountStatus: AccountStatus;
   isAdmin: boolean;
   isDeleted: boolean;
+}
+
+export interface FavoriteRider {
+  id: string;
+  name: string;
+  image?: string | null;
+  isVerified: boolean;
+  avgRatingAsDriver: number;
+  ratingCount: number;
+}
+
+export interface Favorite {
+  id: string;
+  passengerId: string;
+  riderId: string;
+  createdAt: string;
+  rider: FavoriteRider;
+}
+
+/** A review left by a passenger for a rider. Belongs to the rider, not a ride. */
+export interface Rating {
+  id: string;
+  riderId: string;
+  raterId: string;
+  rating: number;
+  review?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  rater?: {
+    id: string;
+    name: string;
+    image?: string | null;
+  };
+}
+
+/** One of the signed-in passenger's own ratings, with the rider's score. */
+export interface MyRating extends Rating {
+  rider: {
+    id: string;
+    name: string;
+    image?: string | null;
+    avgRatingAsDriver: number;
+    ratingCount: number;
+  };
 }
 
 export interface Vehicle {
@@ -42,11 +87,23 @@ export interface RideCheckpoint {
   estimatedTime?: string | null;
 }
 
+/** Response shape from POST /ride/estimate. */
+export type RateSource = "RIDE_AVERAGE" | "DEFAULT_PER_MILE";
+
+export interface RideEstimate {
+  distanceMiles: number;
+  ratePerMile: number;
+  rateSource: RateSource;
+  sampleRideCount: number;
+  suggestedPricePerSeat: number;
+}
+
 export interface RideDriver {
   id: string;
   name: string;
   image?: string | null;
   avgRatingAsDriver: number;
+  ratingCount?: number;
 }
 
 export interface Ride {
@@ -99,7 +156,13 @@ export interface BookingRide {
   destinationAddress: string;
   departureTime: string;
   status: RideStatus;
-  driver?: { id: string; name: string; image?: string | null };
+  driver?: {
+    id: string;
+    name: string;
+    image?: string | null;
+    avgRatingAsDriver: number;
+    ratingCount: number;
+  };
   vehicle?: { model: string; color: string; plate: string };
 }
 

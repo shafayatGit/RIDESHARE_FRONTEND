@@ -2,10 +2,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { StarRating } from "@/components/ui/star-rating";
 import { formatCurrency, formatTime, initials } from "@/lib/format";
 import type { Ride } from "@/lib/types";
-import { MapPin, Star } from "lucide-react";
+import { MapPin } from "lucide-react";
 import Link from "next/link";
+import { FavoriteButton } from "./favorite-button";
 
 export function isEcoBonus(ride: Ride) {
   return ride.totalSeats - ride.availableSeats >= 1;
@@ -26,10 +28,30 @@ export function RideCard({ ride }: { ride: Ride }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{driverName}</span>
               {ride.driver && (
-                <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                  <Star className="size-3 fill-current text-amber-500" />
-                  {ride.driver.avgRatingAsDriver.toFixed(1)}
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <StarRating
+                    value={Math.round(ride.driver.avgRatingAsDriver)}
+                    readOnly
+                    size="sm"
+                    label={`${driverName} rating`}
+                  />
+                  <span className="font-medium text-foreground">
+                    {ride.driver.avgRatingAsDriver.toFixed(1)}
+                  </span>
+                  {ride.driver.ratingCount ? (
+                    <span className="text-muted-foreground/70">
+                      ({ride.driver.ratingCount})
+                    </span>
+                  ) : (
+                    <span>· no ratings yet</span>
+                  )}
                 </span>
+              )}
+              {ride.driver && (
+                <FavoriteButton
+                  riderId={ride.driver.id}
+                  riderName={driverName}
+                />
               )}
               {ride.isFemaleOnly && <Badge variant="secondary">Female-Only</Badge>}
               {isEcoBonus(ride) && <Badge variant="eco">Eco-Bonus</Badge>}
